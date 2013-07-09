@@ -3,6 +3,7 @@ osmtaginspect
 
 OSM TagInspect
 
+Demo at http://maproulette.org/ti
 
 This needs a geoserver backend.
 
