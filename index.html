@@ -50,63 +50,84 @@
 		</form>
 	</div>
 	<script>
-	var wmsbaseurl = "http://ec2-54-242-109-193.compute-1.amazonaws.com:8080/geoserver/osm/wms";
-	var wmsurl = "";
-	var lname = "osm:";
-	var osmkey = "highway";
-	var osmvalue = "secondary";
-	var osmtype = "ways";
-  var clat = 39.144;
-  var clon = -110.93;
-  var z = "7";
-	var QueryString = function () {
+  // this function fills the hidden form fields so we can persist map location
+  function ff() {
+    document.getElementById('clatfield').value = map.getCenter().lat;
+    document.getElementById('clonfield').value = map.getCenter().lng;
+    document.getElementById('zfield').value = map.getZoom();
+  };
+  
+  // this anonymous function creates a QueryString object with memers representing the query string parameters passed in.
+  var QueryString = function () {
 	  // This function is anonymous, is executed immediately and 
 	  // the return value is assigned to QueryString!
 	  var query_string = {};
 	  var query = window.location.search.substring(1);
 	  var vars = query.split("&");
 	  for (var i=0;i<vars.length;i++) {
-		var pair = vars[i].split("=");
-			// If first entry with this name
-		if (typeof query_string[pair[0]] === "undefined") {
-		  query_string[pair[0]] = pair[1];
-			// If second entry with this name
-		} else if (typeof query_string[pair[0]] === "string") {
-		  var arr = [ query_string[pair[0]], pair[1] ];
-		  query_string[pair[0]] = arr;
-			// If third or later entry with this name
-		} else {
-		  query_string[pair[0]].push(pair[1]);
-		}
+      var pair = vars[i].split("=");
+        // If first entry with this name
+      if (typeof query_string[pair[0]] === "undefined") {
+        query_string[pair[0]] = pair[1];
+        // If second entry with this name
+      } else if (typeof query_string[pair[0]] === "string") {
+        var arr = [ query_string[pair[0]], pair[1] ];
+        query_string[pair[0]] = arr;
+        // If third or later entry with this name
+      } else {
+        query_string[pair[0]].push(pair[1]);
+      }
 	  } 
 		return query_string;
 	} ();
 
+  // the base URL for the overlay tile server
+	var wmsbaseurl = "http://ec2-54-242-109-193.compute-1.amazonaws.com:8080/geoserver/osm/wms";
+	var wmsurl = "";
+	// the layer namespace / prefix
+  var lname = "osm:";
+  // the default OSM key to use when nothing is passed
+	var osmkey = "denomination";
+	// the default OSM value to use when nothing is passed
+  var osmvalue = "mormon";
+  // the default OSM object type to use when nothing is passed. 'nodes' or 'ways' are supported.
+	var osmtype = "nodes";
+  // the layer name suffix
+  var typesuffix = ""
+  // the initial map center and zoom level when nothing is passed.
+  var clat = 39.144;
+  var clon = -110.93;
+  var z = "7";
+  
+	// if things were passed in through the query string (form submit), assign the appropriate values to the variables.
 	if ('type' in QueryString) { osmtype = QueryString.type };
-	if ('key' in QueryString) { osmkey = QueryString.key };
-	if ('value' in QueryString) { osmvalue = QueryString.value };
+	if ('key' in QueryString) { osmkey = QueryString.key; };
+	if ('value' in QueryString) { 
+    osmvalue = QueryString.value;
+    if ("*" in osmvalue) {
+      typesuffix = "_like";
+      alert("like");
+    }
+  } else {
+    typesuffix = "_exists" 
+  };
 	if ('clat' in QueryString) { clat = parseFloat(QueryString.clat) };
 	if ('clon' in QueryString) { clon = parseFloat(QueryString.clon) };
 	if ('z' in QueryString) { z = QueryString.z };
 
 	var typesel = document.getElementById('typefield');
 
-    for(var i = 0, j = typesel.options.length; i < j; ++i) {
-        if(typesel.options[i].innerHTML === osmtype) {
-           typesel.selectedIndex = i;
-           break;
-        };
+  for(var i = 0, j = typesel.options.length; i < j; ++i) {
+      if(typesel.options[i].innerHTML === osmtype) {
+         typesel.selectedIndex = i;
+         break;
       };
-      
-    document.getElementById('keyfield').value = osmkey;
-	  document.getElementById('valuefield').value = osmvalue;
-    
-    function ff() {
-	    document.getElementById('clatfield').value = map.getCenter().lat;
-	    document.getElementById('clonfield').value = map.getCenter().lng;
-	    document.getElementById('zfield').value = map.getZoom();
     };
-  
+    
+  // Fill form fields with what was passed in, either through form submit or the defaults.
+  document.getElementById('keyfield').value = decodeURIComponent(osmkey);
+  document.getElementById('valuefield').value = decodeURIComponent(osmvalue);
+      
   wmsurl = wmsbaseurl + "?viewparams=key:" + osmkey + ";value:" + osmvalue;
 
 	var map = L.map('map').setView([clat, clon], z);
