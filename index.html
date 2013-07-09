@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>OpenStreetMap US TagInspect</title>
+	<meta charset="utf-8" />
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+	<style>
+	html, body, #map {
+		height:100%;
+		width:100%;
+		padding:0px;
+		margin:0px;
+	} 
+	.menu {
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		z-index: 1000;
+		border: 1px dotted black;
+		background-color:rgba(255,255,255,0.5);
+		padding: 6px;
+	}
+	</style>
+
+	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
+	<!--[if lte IE 8]>
+		<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.ie.css" />
+	<![endif]-->
+</head>
+<body>
+	<div id="map"></div>
+
+	<script src="http://cdn.leafletjs.com/leaflet-0.5/leaflet.js"></script>
+	<div class=menu>
+		<form onSubmit=ff()>
+		<select id='typefield' name='type'>
+			<option value='nodes'>nodes</option>
+			<option value='ways'>ways</option>
+		</select>
+		key 
+		<input id='keyfield' type=text name='key'>
+		value 
+		<input id='valuefield' type=text name='value'>
+    <input id='clatfield' type="hidden" name="clat">
+    <input id='clonfield' type="hidden" name="clon">
+    <input id='zfield' type="hidden" name="z">
+		<input type=submit>
+		</form>
+	</div>
+	<script>
+	var wmsbaseurl = "http://ec2-54-242-109-193.compute-1.amazonaws.com:8080/geoserver/osm/wms";
+	var wmsurl = "";
+	var lname = "osm:";
+	var osmkey = "highway";
+	var osmvalue = "secondary";
+	var osmtype = "ways";
+  var clat = 39.144;
+  var clon = -110.93;
+  var z = "7";
+	var QueryString = function () {
+	  // This function is anonymous, is executed immediately and 
+	  // the return value is assigned to QueryString!
+	  var query_string = {};
+	  var query = window.location.search.substring(1);
+	  var vars = query.split("&");
+	  for (var i=0;i<vars.length;i++) {
+		var pair = vars[i].split("=");
+			// If first entry with this name
+		if (typeof query_string[pair[0]] === "undefined") {
+		  query_string[pair[0]] = pair[1];
+			// If second entry with this name
+		} else if (typeof query_string[pair[0]] === "string") {
+		  var arr = [ query_string[pair[0]], pair[1] ];
+		  query_string[pair[0]] = arr;
+			// If third or later entry with this name
+		} else {
+		  query_string[pair[0]].push(pair[1]);
+		}
+	  } 
+		return query_string;
+	} ();
+
+	if ('type' in QueryString) { osmtype = QueryString.type };
+	if ('key' in QueryString) { osmkey = QueryString.key };
+	if ('value' in QueryString) { osmvalue = QueryString.value };
+	if ('clat' in QueryString) { clat = parseFloat(QueryString.clat) };
+	if ('clon' in QueryString) { clon = parseFloat(QueryString.clon) };
+	if ('z' in QueryString) { z = QueryString.z };
+
+	var typesel = document.getElementById('typefield');
+
+    for(var i = 0, j = typesel.options.length; i < j; ++i) {
+        if(typesel.options[i].innerHTML === osmtype) {
+           typesel.selectedIndex = i;
+           break;
+        };
+      };
+      
+    document.getElementById('keyfield').value = osmkey;
+	  document.getElementById('valuefield').value = osmvalue;
+    
+    function ff() {
+	    document.getElementById('clatfield').value = map.getCenter().lat;
+	    document.getElementById('clonfield').value = map.getCenter().lng;
+	    document.getElementById('zfield').value = map.getZoom();
+    };
+  
+  wmsurl = wmsbaseurl + "?viewparams=key:" + osmkey + ";value:" + osmvalue;
+
+	var map = L.map('map').setView([clat, clon], z);
+
+	L.tileLayer('http://otile1.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.jpg', {
+		maxZoom: 18,
+		attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>', 
+    opacity: 0.5
+	}).addTo(map);
+
+	var ways = new L.TileLayer.WMS(wmsurl, {
+		layers: 'osm:' + osmtype,
+		format: 'image/png',
+		transparent: true
+	});
+		
+	ways.addTo(map);
+	</script>
+</body>
+</html>
