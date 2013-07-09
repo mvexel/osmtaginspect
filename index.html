@@ -104,31 +104,28 @@
 	if ('key' in QueryString) { osmkey = QueryString.key; };
 	if ('value' in QueryString) { 
     osmvalue = QueryString.value;
-    if ("*" in osmvalue) {
+    if (osmvalue.indexOf("*") > -1) {
       typesuffix = "_like";
-      alert("like");
-    }
-  } else {
-    typesuffix = "_exists" 
+    } else if (osmvalue.length == 0) {
+      typesuffix = "_exist"; 
+    };
   };
 	if ('clat' in QueryString) { clat = parseFloat(QueryString.clat) };
 	if ('clon' in QueryString) { clon = parseFloat(QueryString.clon) };
 	if ('z' in QueryString) { z = QueryString.z };
 
+  // Fill / select form fields with what was passed in, either through form submit or the defaults.
+  document.getElementById('keyfield').value = osmkey;
+  document.getElementById('valuefield').value = osmvalue;
 	var typesel = document.getElementById('typefield');
-
   for(var i = 0, j = typesel.options.length; i < j; ++i) {
-      if(typesel.options[i].innerHTML === osmtype) {
-         typesel.selectedIndex = i;
-         break;
-      };
+    if(typesel.options[i].innerHTML === osmtype) {
+       typesel.selectedIndex = i;
+       break;
     };
-    
-  // Fill form fields with what was passed in, either through form submit or the defaults.
-  document.getElementById('keyfield').value = decodeURIComponent(osmkey);
-  document.getElementById('valuefield').value = decodeURIComponent(osmvalue);
-      
-  wmsurl = wmsbaseurl + "?viewparams=key:" + osmkey + ";value:" + osmvalue;
+  };
+
+  wmsurl = wmsbaseurl + "?viewparams=key:" + osmkey + ";value:" + osmvalue.replace("*","%");
 
 	var map = L.map('map').setView([clat, clon], z);
 
@@ -139,7 +136,7 @@
 	}).addTo(map);
 
 	var ways = new L.TileLayer.WMS(wmsurl, {
-		layers: 'osm:' + osmtype,
+		layers: 'osm:' + encodeURIComponent(osmtype + typesuffix),
 		format: 'image/png',
 		transparent: true
 	});
