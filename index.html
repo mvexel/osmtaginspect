@@ -13,6 +13,7 @@
 		padding:0px;
 		margin:0px;
 	} 
+  
 	.menu {
 		position: absolute;
 		top: 10px;
@@ -22,6 +23,30 @@
 		background-color:rgba(255,255,255,0.5);
 		padding: 6px;
 	}
+  
+  #minZoomNote {
+    color:red;
+    display:none;
+		position: absolute;
+		top: 60px;
+		right: 10px;
+		z-index: 1000;
+		border: 1px dotted black;
+		background-color:rgba(255,255,255,0.5);
+		padding: 6px;    
+  }
+  
+  #loading {
+    color:blue;
+    display:none;
+		position: absolute;
+		top: 60px;
+		right: 10px;
+		z-index: 1000;
+		border: 1px dotted black;
+		background-color:rgba(255,255,255,0.5);
+		padding: 6px;    
+  }
 	</style>
 
 	<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
@@ -48,7 +73,9 @@
     <input id='zfield' type="hidden" name="z">
 		<input type=submit>
 		</form>
-	</div>
+  </div>
+  <div id="minZoomNote">Zoom in to see data layer</div>
+  <div id="loading">Loading data layer...</div>
 	<script>
   // this function fills the hidden form fields so we can persist map location
   function ff() {
@@ -56,6 +83,26 @@
     document.getElementById('clonfield').value = map.getCenter().lng;
     document.getElementById('zfield').value = map.getZoom();
   };
+  
+  // this function enables / disables form elemens.
+  function toggleFormElements(bDisabled) { 
+    var inputs = document.getElementsByTagName("input"); 
+    for (var i = 0; i < inputs.length; i++) { 
+        inputs[i].disabled = bDisabled;
+    } 
+    var selects = document.getElementsByTagName("select");
+    for (var i = 0; i < selects.length; i++) {
+        selects[i].disabled = bDisabled;
+    }
+    var textareas = document.getElementsByTagName("textarea"); 
+    for (var i = 0; i < textareas.length; i++) { 
+        textareas[i].disabled = bDisabled;
+    }
+    var buttons = document.getElementsByTagName("button");
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].disabled = bDisabled;
+    }
+  }
   
   // this anonymous function creates a QueryString object with memers representing the query string parameters passed in.
   var QueryString = function () {
@@ -82,7 +129,7 @@
 	} ();
 
   // the base URL for the overlay tile server
-	var wmsbaseurl = "http://ec2-54-242-109-193.compute-1.amazonaws.com:8080/geoserver/osm/wms";
+	var wmsbaseurl = "http://hqd-mapdev24-02:8080/geoserver/TagInspector/wms";
 	var wmsurl = "";
 	// the layer namespace / prefix
   var lname = "osm:";
@@ -97,17 +144,39 @@
   // the initial map center and zoom level when nothing is passed.
   var clat = 39.144;
   var clon = -110.93;
-  var z = "7";
+  var z = "8";
+  // negation 
+  var negate = false;
+  // min zoom for data layer
+  var minZoomDataLayer = 8;
+
+  // event handler for deciding whether to show the 'zoom in to see stuff' note
+  function decideMinZoomNote(e) {
+    if (map.getZoom() < minZoomDataLayer) {
+      document.getElementById('minZoomNote').style.display = 'block';
+      toggleFormElements(true);
+      //if (map.haslayer('ways')) {map.removeLayer('ways')};
+    } else {
+      document.getElementById('minZoomNote').style.display = 'none';
+      toggleFormElements(false);
+      //if (!map.hasLayer('ways')) {map.addLayer('ways')};
+    };
+  };
   
 	// if things were passed in through the query string (form submit), assign the appropriate values to the variables.
-	if ('type' in QueryString) { osmtype = QueryString.type };
-	if ('key' in QueryString) { osmkey = QueryString.key; };
+	if ('type' in QueryString) { osmtype = decodeURIComponent(QueryString.type) };
+	if ('key' in QueryString) { osmkey = decodeURIComponent(QueryString.key); };
 	if ('value' in QueryString) { 
-    osmvalue = QueryString.value;
+    osmvalue = decodeURIComponent(QueryString.value);
     if (osmvalue.indexOf("*") > -1) {
       typesuffix = "_like";
     } else if (osmvalue.length == 0) {
-      typesuffix = "_exist"; 
+      typesuffix = "_exist";
+      // check for negation operator in key
+      if (osmkey.indexOf('!') == 0) {
+        negate = true;
+        osmkey = osmkey.substr(1);
+      };
     };
   };
 	if ('clat' in QueryString) { clat = parseFloat(QueryString.clat) };
@@ -125,22 +194,33 @@
     };
   };
 
-  wmsurl = wmsbaseurl + "?viewparams=key:" + osmkey + ";value:" + osmvalue.replace("*","%");
+  var viewparams = '?';
+  viewparams += osmkey.length?("viewparams=key:" + osmkey + ";"):"";
+  viewparams += osmvalue.length?("value:" + osmvalue.replace("*","") + ";"):"";
+  viewparams += negate?"negate:NOT":"";
+  wmsurl = wmsbaseurl + viewparams;
 
-	var map = L.map('map').setView([clat, clon], z);
+	var map = L.map('map', {minZoom: 3});
+  //map.on('load', decideMinZoomNote);
+  map.on('moveend', decideMinZoomNote);
+  map.setView([clat, clon], z);
 
 	L.tileLayer('http://otile1.mqcdn.com/tiles/1.0.0/map/{z}/{x}/{y}.jpg', {
-		maxZoom: 18,
-		attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://cloudmade.com">CloudMade</a>', 
+    maxZoom: 18,
+		attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ODbL; Imagery &copy; <a href="http://open.mapquest.com">MapQuest</a>', 
     opacity: 0.5
 	}).addTo(map);
 
 	var ways = new L.TileLayer.WMS(wmsurl, {
+		minZoom: minZoomDataLayer,
 		layers: 'osm:' + encodeURIComponent(osmtype + typesuffix),
 		format: 'image/png',
 		transparent: true
 	});
-		
+  
+  ways.on('loading', function(e) {document.getElementById('loading').style.display = 'block';});
+  ways.on('load', function(e) {document.getElementById('loading').style.display = 'none';});
+  
 	ways.addTo(map);
 	</script>
 </body>
